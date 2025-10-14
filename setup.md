@@ -56,6 +56,7 @@ Now, you'll clone the TensorFlow repository and launch a pre-configured Docker c
 
     ```bash
     docker run -it -w /tensorflow -v $PWD:/tensorflow tensorflow/build:latest
+    docker run -it -w /tensorflow -v $PWD:/tensorflow tensorflow/build:latest-python3.9
     ```
 
     Your terminal prompt will change, indicating you are now inside the Docker container. All subsequent commands should be run inside this container.

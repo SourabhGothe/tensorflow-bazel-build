@@ -75,6 +75,12 @@ This is the main step where you compile the AAR using Bazel, TensorFlow's build 
     --copt='-DGETPAGESIZE_FORCE=16384' \
     //tensorflow/lite/java/select_tf_ops:tensorflow-lite-select-tf-ops.aar
     ```
+    ```bash
+    bazel build -c opt --fat_apk_cpu=arm64-v8a,armeabi-v7a \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    --copt='-DGETPAGESIZE_FORCE=16384' \
+    //tensorflow/lite/java:tensorflow-lite-select-tf-ops.aar
+    ```
 
     Let's break down that command:
 

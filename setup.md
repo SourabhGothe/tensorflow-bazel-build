@@ -1,166 +1,125 @@
-Of course\! Creating a custom `tensorflow-lite-select-tf-ops.aar` library involves building TensorFlow from source with specific configurations for Android. This special library includes the necessary TensorFlow operators that your model uses, which are not part of the standard, smaller TensorFlow Lite runtime.
+Of course\! Building a custom `tf-lite-select-ops.aar` with a specific page size requires compiling TensorFlow from the source. The easiest and most reliable way to do this is by using Docker, which prevents issues with dependencies on your local machine.
 
-Here's a step-by-step guide to do this on your Ubuntu machine.
+Here's the step-by-step procedure to build the AAR with a 16KB page size on your Ubuntu machine.
 
 -----
 
-### \#\# 🛠️ Step 1: Install Prerequisites
+### \#\# Prerequisites
 
-First, you need to set up your build environment. This includes the build tool Bazel, Python dependencies, and the Android NDK/SDK.
+First, you need to install **Git** and **Docker** on your Ubuntu system.
 
-1.  **Update Your System:**
-    Open a terminal and run:
+1.  **Install Git**:
 
     ```bash
-    sudo apt update && sudo apt upgrade -y
+    sudo apt update
+    sudo apt install git
     ```
 
-2.  **Install Essential Tools:**
-    Install Python, Git, and other necessary build tools.
+2.  **Install Docker**: Follow the official Docker installation guide to get the latest version. The basic steps are:
 
     ```bash
-    sudo apt install -y build-essential git python3-dev python3-pip python3-venv
-    ```
+    # Add Docker's official GPG key:
+    sudo apt-get install ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-3.  **Install Bazel:**
-    TensorFlow requires a specific version of Bazel to build. The easiest way to manage this is by using **Bazelisk**, a wrapper that automatically downloads and uses the correct Bazel version specified in the TensorFlow project.
+    # Add the repository to Apt sources:
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt-get update
 
-    ```bash
-    sudo apt install -y npm
-    sudo npm install -g @bazel/bazelisk
-    ```
+    # Install the latest version
+    sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-    Now, you can use the `bazel` command, and Bazelisk will handle the versioning in the background.
-
-4.  **Install Android SDK and NDK:**
-    The best way to get these is through Android Studio.
-
-      * If you don't have it, [download and install Android Studio](https://developer.android.com/studio).
-      * Open Android Studio, go to **Tools \> SDK Manager**.
-      * Under the **SDK Platforms** tab, make sure at least one Android API level is installed (e.g., Android 12.0, API Level 31).
-      * Under the **SDK Tools** tab, check the box for **NDK (Side by side)** and click **Apply** to install it.
-      * Note down the paths for the SDK and NDK, which are shown at the top of the SDK Manager window.
-
-5.  **Set Environment Variables:**
-    You need to tell the build system where to find the Android tools. Add the following lines to your `~/.bashrc` file.
-
-    ```bash
-    nano ~/.bashrc
-    ```
-
-    Add these lines to the end of the file, replacing `/path/to/your/` with the actual paths you noted from Android Studio.
-
-    ```bash
-    export ANDROID_HOME="/path/to/your/Android/Sdk"
-    export ANDROID_NDK_HOME="/path/to/your/Android/Sdk/ndk/your-ndk-version"
-    export PATH="$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$PATH"
-    ```
-
-    Save the file (Ctrl+O, Enter, Ctrl+X) and apply the changes:
-
-    ```bash
-    source ~/.bashrc
+    # Add your user to the docker group to run docker without sudo (log out and log back in for this to take effect)
+    sudo usermod -aG docker $USER
     ```
 
 -----
 
-### \#\# ⚙️ Step 2: Configure TensorFlow Source
+### \#\# Step 1: Set Up the Build Environment
 
-Now, you'll download the TensorFlow source code and configure the build.
+Now, you'll clone the TensorFlow repository and launch a pre-configured Docker container for building.
 
-1.  **Clone the TensorFlow Repository:**
+1.  **Clone TensorFlow**: It's best to check out a specific release tag for a stable build. For example, to use version `v2.16.1`:
 
     ```bash
     git clone https://github.com/tensorflow/tensorflow.git
     cd tensorflow
+    git checkout v2.16.1 # Or any other stable version
     ```
 
-2.  **Checkout a Stable Release:**
-    It's highly recommended to build from a stable release tag rather than the master branch. For example, to use version `r2.16`:
+2.  **Start the Build Container**: This command starts a Docker container and mounts your cloned `tensorflow` directory into it.
 
     ```bash
-    git checkout r2.16
+    docker run -it -w /tensorflow -v $PWD:/tensorflow tensorflow/build:latest
     ```
 
-3.  **Run the Configure Script:**
-    This script will ask you several questions to set up the build.
-
-    ```bash
-    ./configure
-    ```
-
-      * It will ask for the Python interpreter location. The default is usually correct; just press **Enter**.
-      * When it asks, **`Please specify the location of the Android NDK`**, provide the path you set in `ANDROID_NDK_HOME`.
-      * When it asks, **`Please specify the location of the Android SDK`**, provide the path you set in `ANDROID_HOME`.
-      * For the other questions, the default answers are typically fine unless you have a specific need (e.g., ROCm or CUDA support, which isn't needed for this Android build).
+    Your terminal prompt will change, indicating you are now inside the Docker container. All subsequent commands should be run inside this container.
 
 -----
 
-### \#\# 🚀 Step 3: Build the AAR Library
+### \#\# Step 2: Build the AAR Library
 
-This is the final step where you run the Bazel build command.
+This is the main step where you compile the AAR using Bazel, TensorFlow's build system. The command includes a special flag to force the 16KB page size.
 
-1.  **Run the Build Command:**
-    To build the AAR for a common architecture like `arm64-v8a`, use the following command. This process can take a significant amount of time (from 30 minutes to over an hour) and consume a lot of RAM.
-
-    ```bash
-    bazel build -c opt --config=android_arm64 //tensorflow/lite/java:tensorflow-lite-select-tf-ops.aar
-    ```
-
-    Let's break down this command:
-
-      * `bazel build`: The command to start the build process.
-      * `-c opt`: Specifies an optimized build (`opt` for release, `dbg` for debug).
-      * `--config=android_arm64`: Specifies the target architecture. You can build for other architectures by changing this flag (e.g., `--config=android_arm` for 32-bit ARM).
-      * `//tensorflow/lite/java:tensorflow-lite-select-tf-ops.aar`: This is the specific build target for the AAR file you need.
-
-2.  **Building for Multiple Architectures (Optional but Recommended):**
-    Most modern Android apps support multiple architectures. You can build a "fat" AAR that contains binaries for all of them with a single command:
+1.  **Run the Bazel Build Command**: Execute the following command inside the Docker container. This will build the `.aar` for `arm64-v8a` and `armeabi-v7a` architectures, which cover most modern Android devices.
 
     ```bash
-    bazel build -c opt --fat_apk_cpu=arm64-v8a,armeabi-v7a,x86,x86_64 \
-      //tensorflow/lite/java:tensorflow-lite-select-tf-ops.aar
+    bazel build -c opt --fat_apk_cpu=arm64-v8a,armeabi-v7a \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    --copt='-DGETPAGESIZE_FORCE=16384' \
+    //tensorflow/lite/java/select_tf_ops:tensorflow-lite-select-tf-ops.aar
     ```
+
+    Let's break down that command:
+
+      * `bazel build -c opt`: Compiles an optimized release build.
+      * `--fat_apk_cpu=...`: Specifies the target Android CPU architectures.
+      * `--host_crosstool_top=...`: A necessary flag for cross-compiling for Android.
+      * `--copt='-DGETPAGESIZE_FORCE=16384'`: This is the **key flag**. It forces the page size to be **16KB** (16 \* 1024 = 16384 bytes) during compilation.
+      * `//tensorflow/lite/java/...`: This is the build target for the selective TensorFlow ops AAR.
+
+    The build process will take a significant amount of time, as it's compiling a large portion of TensorFlow from scratch. ⏳
 
 -----
 
-### \#\# ✅ Step 4: Locate and Use the AAR File
+### \#\# Step 3: Locate and Use the AAR
 
-Once the build successfully completes, the AAR file will be located in the `bazel-bin` directory.
+Once the build successfully completes, the `.aar` file will be available within the `bazel-bin` directory.
 
-1.  **Find the AAR:**
-    The generated file will be at:
-    `tensorflow/bazel-bin/tensorflow/lite/java/tensorflow-lite-select-tf-ops.aar`
+1.  **Find the AAR**: The final library will be located at:
+    `bazel-bin/tensorflow/lite/java/select_tf_ops/tensorflow-lite-select-tf-ops.aar`
 
-2.  **Use it in Your Android Project:**
+2.  **Copy the AAR**: Since you are inside a Docker container, you'll need to copy the file to your host machine. Open a **new terminal window** (do not close the Docker one yet) and run:
 
-      * In Android Studio, switch to the **Project** view.
-      * Create a `libs` directory inside your app's module (e.g., `app/libs`) if it doesn't already exist.
-      * Copy the `tensorflow-lite-select-tf-ops.aar` file into this `libs` directory.
-      * Open your app module's `build.gradle.kts` (or `build.gradle`) file and add the AAR as a dependency.
+    ```bash
+    # Find your container ID
+    docker ps
 
-    **For Groovy (`build.gradle`):**
+    # Copy the file (replace <CONTAINER_ID> with the actual ID from the command above)
+    docker cp <CONTAINER_ID>:/tensorflow/bazel-bin/tensorflow/lite/java/select_tf_ops/tensorflow-lite-select-tf-ops.aar .
+    ```
+
+    This will copy the AAR to your current directory on your host machine.
+
+3.  **Integrate into Your Android Project**:
+
+      * Place the copied `tensorflow-lite-select-tf-ops.aar` file into the `libs` directory of your Android app module.
+      * Add it as a dependency in your module-level `build.gradle` or `build.gradle.kts` file:
+
+    <!-- end list -->
 
     ```groovy
+    // build.gradle (Groovy)
     dependencies {
-        // Your other dependencies
         implementation files('libs/tensorflow-lite-select-tf-ops.aar')
-
-        // You still need the standard TFLite library
-        implementation 'org.tensorflow:tensorflow-lite-task-vision:0.4.4' // Or another TFLite dependency
+        // Other dependencies...
+        implementation 'org.tensorflow:tensorflow-lite:0.0.0-nightly-SNAPSHOT' // Make sure to include the base TFLite library
     }
     ```
 
-    **For Kotlin DSL (`build.gradle.kts`):**
-
-    ```kotlin
-    dependencies {
-        // Your other dependencies
-        implementation(files("libs/tensorflow-lite-select-tf-ops.aar"))
-
-        // You still need the standard TFLite library
-        implementation("org.tensorflow:tensorflow-lite-task-vision:0.4.4") // Or another TFLite dependency
-    }
-    ```
-
-    Now, sync your Gradle project, and you'll be able to run your model using the TensorFlow Lite interpreter in your Android app\!
+You're all set\! You have now successfully built and integrated a custom TFLite Select Ops library with a 16KB page size.

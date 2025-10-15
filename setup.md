@@ -1,4 +1,9 @@
-Of course\! Building a custom `tf-lite-select-ops.aar` with a specific page size requires compiling TensorFlow from the source. The easiest and most reliable way to do this is by using Docker, which prevents issues with dependencies on your local machine.
+bazel build -c opt --fat_apk_cpu=arm64-v8a,armeabi-v7a \
+--host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+--copt=-DGETPAGESIZE_FORCE=16384 \
+--linkopt=-Wl,-z,max-page-size=16384 \
+//tensorflow/lite/java:tensorflow-lite-flex.aar
+
 
 Here's the step-by-step procedure to build the AAR with a 16KB page size on your Ubuntu machine.
 

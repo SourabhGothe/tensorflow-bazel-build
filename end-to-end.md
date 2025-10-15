@@ -1,3 +1,10 @@
+
+./tensorflow/lite/tools/build_aar.sh \
+  --target_archs=arm64-v8a,armeabi-v7a \
+  --custom_ops_register_file=/tmp/custom_ops.cc \
+  --extra_tflite_flex_ops=SentencepieceOp \
+  --extra_bazel_args="--copt=-DGETPAGESIZE_FORCE=16384 --linkopt=-Wl,-z,max-page-size=16384"
+  
 Of course. Building a custom `select-ops.aar` for a specific model is an excellent way to ensure compatibility while optimizing for size.
 
 This guide consolidates all the steps, including the necessary fixes for environment setup, into a single workflow.
